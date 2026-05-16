@@ -1,4 +1,3 @@
-import { Auth } from 'remix/auth-middleware'
 import { Database } from 'remix/data-table'
 import { Session } from 'remix/session'
 import { redirect } from 'remix/response/redirect'
@@ -15,14 +14,16 @@ import {
 } from '../data/games.ts'
 import { createSubscriber, gameChannel } from '../data/redis.ts'
 import {
+  boards as boardsTable,
   parseCluePayload,
   type Clue,
   type CluePayload,
-  type GameState,
   type User,
 } from '../data/schema.ts'
 import { routes } from '../routes.ts'
 import { Layout } from '../ui/layout.tsx'
+import { c } from '../ui/theme.ts'
+import { getCurrentUserOrNull } from '../utils/auth.ts'
 import { render } from '../utils/render.tsx'
 
 interface BoardRowValuesShape {
@@ -53,22 +54,16 @@ function setGuestPlayer(
   session.set('guest_players', map)
 }
 
-function currentUserOrNull(get: (k: unknown) => unknown): User | null {
-  const auth = get(Auth) as { ok: boolean; identity?: User }
-  return auth.ok ? auth.identity ?? null : null
-}
-
 export const games = {
   actions: {
     async create({ get }) {
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       if (!user) return redirect(routes.auth.login.index.href())
       const fd = get(FormData)
       const boardId = String(fd.get('boardId') ?? '')
       if (!boardId) return new Response('Bad Request', { status: 400 })
 
       const db = get(Database)
-      const { boards: boardsTable } = await import('../data/schema.ts')
       const board = await db.find(boardsTable, boardId)
       if (!board) return new Response('Not Found', { status: 404 })
       // Owner OR shared board: allow if owner or if board has share_code
@@ -81,7 +76,7 @@ export const games = {
     },
 
     async host({ request, params, get }) {
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       if (!user) return redirect(routes.auth.login.index.href())
       const ctx = await loadGameByCode(params.joinCode)
       if (!ctx) return new Response('Not Found', { status: 404 })
@@ -92,7 +87,7 @@ export const games = {
     },
 
     async play({ request, params, get }) {
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       const session = get(Session)
       const ctx = await loadGameByCode(params.joinCode)
       if (!ctx) return new Response('Not Found', { status: 404 })
@@ -134,7 +129,7 @@ export const games = {
     },
 
     async watch({ request, params, get }) {
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       const ctx = await loadGameByCode(params.joinCode)
       if (!ctx) return new Response('Not Found', { status: 404 })
       return render(<SpectatorPage user={user} ctx={ctx} />, request)
@@ -146,7 +141,7 @@ export const games = {
       if (!displayName) {
         return redirect(routes.games.play.href({ joinCode: params.joinCode }))
       }
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       const session = get(Session)
       const player = await joinAsPlayer(params.joinCode, {
         userId: user?.id ?? null,
@@ -164,7 +159,7 @@ export const games = {
     },
 
     async action({ params, get }) {
-      const user = currentUserOrNull(get as never)
+      const user = getCurrentUserOrNull({ get })
       const session = get(Session)
       const fd = get(FormData)
       const action = String(fd.get('action') ?? '')
@@ -747,7 +742,7 @@ function FinishedView() {
       : null
     return (
       <div mix={finishedStyle}>
-        <h2 mix={css({ color: 'var(--rr-accent)', fontSize: '32px', margin: '0 0 16px' })}>
+        <h2 mix={css({ color: c.accent, fontSize: '32px', margin: '0 0 16px' })}>
           Game over!
         </h2>
         {winner ? (
@@ -783,7 +778,7 @@ function Scoreboard() {
                 mix={scoreRowStyle}
                 style={{
                   fontWeight: p.id === highlightId ? 700 : 400,
-                  color: p.id === highlightId ? 'var(--rr-text)' : 'var(--rr-accent)',
+                  color: p.id === highlightId ? c.text : c.accent,
                 }}
               >
                 <span>{p.display_name}</span>
@@ -865,7 +860,7 @@ function ClueBlock() {
                   mix={optionItemStyle}
                   style={
                     isCorrect
-                      ? { borderColor: 'var(--rr-success)', color: 'var(--rr-success)' }
+                      ? { borderColor: c.success, color: c.success }
                       : undefined
                   }
                 >
@@ -921,7 +916,7 @@ const optionItemStyle = css({
   alignItems: 'center',
   gap: '12px',
   padding: '10px 14px',
-  border: '1px solid var(--rr-border)',
+  border: `1px solid ${c.border}`,
   borderRadius: '4px',
   fontSize: '16px',
   textAlign: 'left',
@@ -932,8 +927,8 @@ const optionLetterStyle = css({
   width: '28px',
   height: '28px',
   borderRadius: '50%',
-  background: 'var(--rr-accent)',
-  color: 'var(--rr-surface-muted)',
+  background: c.accent,
+  color: c.surfaceMuted,
   fontWeight: 700,
   display: 'flex',
   alignItems: 'center',
@@ -987,7 +982,7 @@ const gameHeaderStyle = css({
 
 const gameHeaderTitleStyle = css({
   margin: 0,
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '24px',
   '@media (max-width: 640px)': { fontSize: '18px' },
 })
@@ -1001,10 +996,10 @@ const gameHeaderJoinStyle = css({
 
 const gameJoinCodeStyle = css({
   fontFamily: 'monospace',
-  background: 'var(--rr-accent-soft)',
+  background: c.accentSoft,
   padding: '2px 8px',
   borderRadius: '3px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
 })
 
 const gameHeaderNavStyle = css({
@@ -1016,8 +1011,8 @@ const gameHeaderNavStyle = css({
 })
 
 const lobbyBoxStyle = css({
-  background: 'var(--rr-surface)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surface,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '8px',
   padding: '32px',
   marginBottom: '24px',
@@ -1026,7 +1021,7 @@ const lobbyBoxStyle = css({
 
 const subHeadingStyle = css({
   margin: '0 0 12px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '20px',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
@@ -1035,10 +1030,10 @@ const subHeadingStyle = css({
 
 const joinUrlStyle = css({
   fontFamily: 'monospace',
-  background: 'var(--rr-accent-soft)',
+  background: c.accentSoft,
   padding: '6px 12px',
   borderRadius: '4px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   wordBreak: 'break-all',
 })
 
@@ -1052,13 +1047,13 @@ const gridWrapperStyle = css({
 const gridStyle = css({
   display: 'grid',
   gap: '4px',
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '4px',
-  border: '1px solid var(--rr-border-strong)',
+  border: `1px solid ${c.borderStrong}`,
 })
 
 const categoryCellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '16px 8px',
   minHeight: '64px',
   display: 'flex',
@@ -1068,30 +1063,30 @@ const categoryCellStyle = css({
   textTransform: 'uppercase',
   fontWeight: 700,
   letterSpacing: '0.04em',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '14px',
   '@media (max-width: 640px)': { padding: '10px 4px', minHeight: '48px', fontSize: '11px' },
 })
 
 const cellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   minHeight: '90px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '28px',
   fontWeight: 700,
   '@media (max-width: 640px)': { minHeight: '64px', fontSize: '18px' },
 })
 
 const cellRevealedStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   minHeight: '90px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--rr-border)',
+  color: c.border,
   fontSize: '28px',
   '@media (max-width: 640px)': { minHeight: '64px', fontSize: '18px' },
 })
@@ -1102,12 +1097,12 @@ const cellButtonStyle = css({
   width: '100%',
   height: '100%',
   minHeight: '90px',
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   border: 'none',
   cursor: 'pointer',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontFamily: 'inherit',
-  '&:hover': { background: 'var(--rr-surface-alt)' },
+  '&:hover': { background: c.surfaceAlt },
   '@media (max-width: 640px)': { minHeight: '64px' },
 })
 
@@ -1120,9 +1115,9 @@ const cellValueStyle2 = css({
 })
 
 const clueViewStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '40px',
-  border: '1px solid var(--rr-border-strong)',
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '8px',
   textAlign: 'center',
   marginBottom: '24px',
@@ -1131,7 +1126,7 @@ const clueViewStyle = css({
 
 const clueValueStyle = css({
   fontSize: '48px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   margin: '0 0 16px',
   fontWeight: 700,
   textShadow: '4px 4px 0 #000',
@@ -1155,7 +1150,7 @@ const clueResponseStyle = css({
 const buzzerStateStyle = css({
   marginBottom: '16px',
   fontSize: '14px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
 })
 
 const hostActionsStyle = css({
@@ -1168,7 +1163,7 @@ const hostActionsStyle = css({
 
 const alreadyBuzzedStyle = css({
   fontSize: '20px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontWeight: 700,
 })
 
@@ -1187,7 +1182,7 @@ const emptyStyle = css({
   padding: '40px',
   textAlign: 'center',
   opacity: 0.7,
-  border: '2px dashed var(--rr-border)',
+  border: `2px dashed ${c.border}`,
   borderRadius: '8px',
 })
 
@@ -1199,8 +1194,8 @@ const endGameRowStyle = css({
 const scoreboardStyle = css({
   marginTop: '32px',
   padding: '20px',
-  background: 'var(--rr-surface)',
-  border: '1px solid var(--rr-border)',
+  background: c.surface,
+  border: `1px solid ${c.border}`,
   borderRadius: '6px',
 })
 
@@ -1208,24 +1203,24 @@ const scoreRowStyle = css({
   display: 'flex',
   justifyContent: 'space-between',
   padding: '8px 0',
-  borderBottom: '1px solid var(--rr-accent-soft)',
+  borderBottom: `1px solid ${c.accentSoft}`,
   '&:last-child': { borderBottom: 'none' },
 })
 
 const finishedStyle = css({
   textAlign: 'center',
   padding: '40px',
-  background: 'var(--rr-surface)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surface,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '8px',
 })
 
 const joinFormStyle = css({
   maxWidth: '420px',
   margin: '40px auto',
-  background: 'var(--rr-surface)',
+  background: c.surface,
   padding: '24px',
-  border: '1px solid var(--rr-border-strong)',
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '8px',
 })
 
@@ -1235,7 +1230,7 @@ const joinLabelStyle = css({
   gap: '6px',
   marginBottom: '16px',
   '& > span:first-child': {
-    color: 'var(--rr-accent)',
+    color: c.accent,
     fontSize: '12px',
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
@@ -1244,20 +1239,20 @@ const joinLabelStyle = css({
 
 const joinInputStyle = css({
   padding: '10px 12px',
-  background: 'var(--rr-surface-muted)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surfaceMuted,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '4px',
-  color: 'var(--rr-text)',
+  color: c.text,
   fontSize: '16px',
   outline: 'none',
-  '&:focus': { borderColor: 'var(--rr-text)' },
+  '&:focus': { borderColor: c.text },
 })
 
 const primaryButtonStyle = css({
   display: 'inline-block',
   padding: '12px 18px',
-  background: 'var(--rr-accent)',
-  color: 'var(--rr-surface-muted)',
+  background: c.accent,
+  color: c.surfaceMuted,
   fontWeight: 700,
   border: 'none',
   borderRadius: '4px',
@@ -1265,15 +1260,15 @@ const primaryButtonStyle = css({
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
   fontSize: '14px',
-  '&:hover': { background: 'var(--rr-text)' },
+  '&:hover': { background: c.text },
   '@media (max-width: 640px)': { width: '100%', padding: '14px 18px', fontSize: '15px' },
 })
 
 const bigButtonStyle = css({
   display: 'inline-block',
   padding: '24px 48px',
-  background: 'var(--rr-accent)',
-  color: 'var(--rr-surface-muted)',
+  background: c.accent,
+  color: c.surfaceMuted,
   fontWeight: 700,
   border: 'none',
   borderRadius: '8px',
@@ -1281,13 +1276,13 @@ const bigButtonStyle = css({
   letterSpacing: '0.1em',
   textTransform: 'uppercase',
   fontSize: '24px',
-  boxShadow: '0 4px 0 var(--rr-accent-shadow)',
-  '&:hover': { background: 'var(--rr-text)', boxShadow: '0 4px 0 var(--rr-accent-shadow)' },
-  '&:active': { transform: 'translateY(2px)', boxShadow: '0 2px 0 var(--rr-accent-shadow)' },
+  boxShadow: `0 4px 0 ${c.accentShadow}`,
+  '&:hover': { background: c.text, boxShadow: `0 4px 0 ${c.accentShadow}` },
+  '&:active': { transform: 'translateY(2px)', boxShadow: `0 2px 0 ${c.accentShadow}` },
   '@media (max-width: 640px)': {
     width: '100%',
     padding: '24px 24px',
     fontSize: '22px',
-    boxShadow: '0 3px 0 var(--rr-accent-shadow)',
+    boxShadow: `0 3px 0 ${c.accentShadow}`,
   },
 })

@@ -1,4 +1,3 @@
-import { Auth } from 'remix/auth-middleware'
 import { Session } from 'remix/session'
 import { redirect } from 'remix/response/redirect'
 import type { BuildAction } from 'remix/fetch-router'
@@ -9,12 +8,12 @@ import type { routes as routesType } from '../routes.ts'
 import { routes } from '../routes.ts'
 import { Layout } from '../ui/layout.tsx'
 import { BRAND_NAME, c, fonts } from '../ui/theme.ts'
+import { getCurrentUserOrNull } from '../utils/auth.ts'
 import { render } from '../utils/render.tsx'
 
 export const home: BuildAction<'ANY', typeof routesType.home> = {
   handler({ request, get }) {
-    const auth = get(Auth)
-    if (auth.ok) {
+    if (getCurrentUserOrNull({ get })) {
       return redirect(routes.boards.index.href())
     }
     const session = get(Session)

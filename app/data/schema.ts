@@ -120,6 +120,8 @@ export interface BoardRowValues {
   values: number[]
 }
 
+export type GameStatus = 'lobby' | 'in_progress' | 'finished'
+
 export interface GameState {
   revealed: Record<string, boolean>
   current_clue_id: string | null

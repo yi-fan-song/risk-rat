@@ -1,4 +1,4 @@
-import { Auth, requireAuth } from 'remix/auth-middleware'
+import { requireAuth } from 'remix/auth-middleware'
 import { Database } from 'remix/data-table'
 import { Session } from 'remix/session'
 import { redirect } from 'remix/response/redirect'
@@ -28,6 +28,8 @@ import { fileStorage, mediaKindFor } from '../data/file-storage.ts'
 import { routes } from '../routes.ts'
 import { Layout } from '../ui/layout.tsx'
 import { FormCard, SubmitButton, TextField } from '../ui/form.tsx'
+import { c } from '../ui/theme.ts'
+import { getCurrentUser } from '../utils/auth.ts'
 import { render } from '../utils/render.tsx'
 
 interface BoardRowValuesShape {
@@ -51,17 +53,11 @@ const updateClueSchema = f.object({
 
 const MAX_OPTIONS = 6
 
-function currentUser(get: <T>(key: unknown) => unknown): User {
-  const auth = get(Auth) as { ok: boolean; identity?: User }
-  if (!auth.ok || !auth.identity) throw new Error('Expected auth')
-  return auth.identity
-}
-
 export const boards = {
   middleware: [requireAuth()],
   actions: {
     async index({ request, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const db = get(Database)
       const all = await db.findMany(boardsTable, {
         where: { owner_id: user.id },
@@ -73,13 +69,13 @@ export const boards = {
     new: {
       actions: {
         index({ request, get }) {
-          const user = currentUser(get as never)
+          const user = getCurrentUser({ get })
           const session = get(Session)
           const error = (session.get('error') as string | null) ?? null
           return render(<NewBoardPage user={user} error={error} />, request)
         },
         async action({ get }) {
-          const user = currentUser(get as never)
+          const user = getCurrentUser({ get })
           const parsed = s.parseSafe(newBoardSchema, get(FormData))
           const session = get(Session)
           if (!parsed.success) {
@@ -93,7 +89,7 @@ export const boards = {
     },
 
     async show({ request, params, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const grid = await loadBoardWithGrid(params.boardId)
       if (!grid || grid.board.owner_id !== user.id) {
         return new Response('Not Found', { status: 404 })
@@ -102,7 +98,7 @@ export const boards = {
     },
 
     async edit({ request, params, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const grid = await loadBoardWithGrid(params.boardId)
       if (!grid || grid.board.owner_id !== user.id) {
         return new Response('Not Found', { status: 404 })
@@ -113,7 +109,7 @@ export const boards = {
     },
 
     async update({ params, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const db = get(Database)
       const board = await db.find(boardsTable, params.boardId)
       if (!board || board.owner_id !== user.id) {
@@ -146,7 +142,7 @@ export const boards = {
     },
 
     async destroy({ params, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const db = get(Database)
       const board = await db.find(boardsTable, params.boardId)
       if (!board || board.owner_id !== user.id) {
@@ -157,7 +153,7 @@ export const boards = {
     },
 
     async share({ params, get }) {
-      const user = currentUser(get as never)
+      const user = getCurrentUser({ get })
       const db = get(Database)
       const board = await db.find(boardsTable, params.boardId)
       if (!board || board.owner_id !== user.id) {
@@ -176,7 +172,7 @@ export const boards = {
     clue: {
       actions: {
         async index({ request, params, get }) {
-          const user = currentUser(get as never)
+          const user = getCurrentUser({ get })
           const db = get(Database)
           const clue = await db.find(cluesTable, params.clueId)
           if (!clue) return new Response('Not Found', { status: 404 })
@@ -194,7 +190,7 @@ export const boards = {
           )
         },
         async action({ params, get }) {
-          const user = currentUser(get as never)
+          const user = getCurrentUser({ get })
           const db = get(Database)
           const clue = await db.find(cluesTable, params.clueId)
           if (!clue) return new Response('Not Found', { status: 404 })
@@ -673,7 +669,7 @@ const headingRowStyle = css({
 
 const pageHeadingStyle = css({
   margin: 0,
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '28px',
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
@@ -684,7 +680,7 @@ const emptyStyle = css({
   padding: '40px',
   textAlign: 'center',
   opacity: 0.7,
-  border: '2px dashed var(--rr-border)',
+  border: `2px dashed ${c.border}`,
   borderRadius: '8px',
 })
 
@@ -701,8 +697,8 @@ const boardCardStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  background: 'var(--rr-surface)',
-  border: '1px solid var(--rr-border)',
+  background: c.surface,
+  border: `1px solid ${c.border}`,
   borderRadius: '6px',
   padding: '14px 18px',
   gap: '12px',
@@ -710,41 +706,41 @@ const boardCardStyle = css({
 })
 
 const cardLinkStyle = css({
-  color: 'var(--rr-text)',
+  color: c.text,
   textDecoration: 'none',
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
   flex: 1,
-  '&:hover': { color: 'var(--rr-accent)' },
+  '&:hover': { color: c.accent },
 })
 
 const shareTagStyle = css({
   fontSize: '11px',
   letterSpacing: '0.1em',
-  color: 'var(--rr-accent)',
+  color: c.accent,
 })
 
 const inlineFormStyle = css({ display: 'inline' })
 
 const dangerButtonStyle = css({
   background: 'transparent',
-  color: 'var(--rr-danger)',
-  border: '1px solid var(--rr-danger)',
+  color: c.danger,
+  border: `1px solid ${c.danger}`,
   borderRadius: '4px',
   padding: '6px 12px',
   cursor: 'pointer',
   fontSize: '12px',
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
-  '&:hover': { background: 'var(--rr-danger)', color: 'var(--rr-surface-muted)' },
+  '&:hover': { background: c.danger, color: c.surfaceMuted },
 })
 
 const primaryButtonStyle = css({
   display: 'inline-block',
   padding: '10px 18px',
-  background: 'var(--rr-accent)',
-  color: 'var(--rr-surface-muted)',
+  background: c.accent,
+  color: c.surfaceMuted,
   fontWeight: 700,
   textDecoration: 'none',
   border: 'none',
@@ -753,27 +749,27 @@ const primaryButtonStyle = css({
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
   fontSize: '14px',
-  '&:hover': { background: 'var(--rr-text)' },
+  '&:hover': { background: c.text },
 })
 
 const secondaryButtonStyle = css({
   display: 'inline-block',
   padding: '10px 18px',
   background: 'transparent',
-  color: 'var(--rr-accent)',
-  border: '1px solid var(--rr-border-strong)',
+  color: c.accent,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '4px',
   cursor: 'pointer',
   fontWeight: 700,
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
   fontSize: '14px',
-  '&:hover': { borderColor: 'var(--rr-text)', color: 'var(--rr-text)' },
+  '&:hover': { borderColor: c.text, color: c.text },
 })
 
 const errorStyle = css({
-  background: 'var(--rr-danger-soft)',
-  color: 'var(--rr-danger)',
+  background: c.dangerSoft,
+  color: c.danger,
   padding: '10px 12px',
   borderRadius: '4px',
   marginBottom: '16px',
@@ -793,13 +789,13 @@ const titleInputStyle = css({
   minWidth: '160px',
   background: 'transparent',
   border: 'none',
-  borderBottom: '2px solid var(--rr-border-strong)',
-  color: 'var(--rr-accent)',
+  borderBottom: `2px solid ${c.borderStrong}`,
+  color: c.accent,
   fontSize: '28px',
   padding: '4px 0',
   outline: 'none',
   fontWeight: 700,
-  '&:focus': { borderBottomColor: 'var(--rr-accent)' },
+  '&:focus': { borderBottomColor: c.accent },
   '@media (max-width: 640px)': { fontSize: '20px' },
 })
 
@@ -819,10 +815,10 @@ const editToolbarStyle = css({
 
 const shareCodeStyle = css({
   fontFamily: 'monospace',
-  background: 'var(--rr-accent-soft)',
+  background: c.accentSoft,
   padding: '8px 12px',
   borderRadius: '4px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
 })
 
 const gridWrapperStyle = css({
@@ -835,13 +831,13 @@ const gridWrapperStyle = css({
 const gridStyle = css({
   display: 'grid',
   gap: '4px',
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '4px',
-  border: '1px solid var(--rr-border-strong)',
+  border: `1px solid ${c.borderStrong}`,
 })
 
 const categoryCellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '16px 8px',
   minHeight: '64px',
   display: 'flex',
@@ -851,7 +847,7 @@ const categoryCellStyle = css({
   textTransform: 'uppercase',
   fontWeight: 700,
   letterSpacing: '0.04em',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '14px',
   '@media (max-width: 640px)': { padding: '10px 4px', minHeight: '48px', fontSize: '11px' },
 })
@@ -860,42 +856,42 @@ const categoryInputStyle = css({
   background: 'transparent',
   border: 'none',
   textAlign: 'center',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontWeight: 700,
   width: '100%',
   fontSize: '14px',
   textTransform: 'uppercase',
   outline: 'none',
-  '&:focus': { background: 'var(--rr-accent-soft)' },
+  '&:focus': { background: c.accentSoft },
   '@media (max-width: 640px)': { fontSize: '11px' },
 })
 
 const cellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   minHeight: '90px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '28px',
   fontWeight: 700,
   '@media (max-width: 640px)': { minHeight: '64px', fontSize: '18px' },
 })
 
 const cellLinkStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   minHeight: '90px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '28px',
   fontWeight: 700,
   textDecoration: 'none',
   cursor: 'pointer',
-  '&:hover': { background: 'var(--rr-surface-alt)' },
+  '&:hover': { background: c.surfaceAlt },
   '@media (max-width: 640px)': { minHeight: '64px', fontSize: '18px' },
 })
 
@@ -927,7 +923,7 @@ const labelStyle = css({
   marginBottom: '16px',
   fontSize: '14px',
   '& > span:first-child': {
-    color: 'var(--rr-accent)',
+    color: c.accent,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     fontSize: '12px',
@@ -936,43 +932,43 @@ const labelStyle = css({
 
 const textareaStyle = css({
   padding: '10px 12px',
-  background: 'var(--rr-surface-muted)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surfaceMuted,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '4px',
-  color: 'var(--rr-text)',
+  color: c.text,
   fontSize: '15px',
   outline: 'none',
   resize: 'vertical',
   fontFamily: 'inherit',
-  '&:focus': { borderColor: 'var(--rr-text)' },
+  '&:focus': { borderColor: c.text },
   '@media (max-width: 640px)': { fontSize: '16px' },
 })
 
 const textareaMonoStyle = css({
   padding: '10px 12px',
-  background: 'var(--rr-surface-muted)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surfaceMuted,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '4px',
-  color: 'var(--rr-text)',
+  color: c.text,
   fontSize: '13px',
   outline: 'none',
   resize: 'vertical',
   fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-  '&:focus': { borderColor: 'var(--rr-text)' },
+  '&:focus': { borderColor: c.text },
   '@media (max-width: 640px)': { fontSize: '16px' },
 })
 
 const backLinkStyle = css({
   display: 'inline-block',
   marginBottom: '12px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   textDecoration: 'none',
   fontSize: '14px',
-  '&:hover': { color: 'var(--rr-text)' },
+  '&:hover': { color: c.text },
 })
 
 const fieldsetStyle = css({
-  border: '1px solid var(--rr-border)',
+  border: `1px solid ${c.border}`,
   borderRadius: '6px',
   padding: '12px 16px 16px',
   margin: '0 0 16px',
@@ -983,7 +979,7 @@ const fieldsetStyle = css({
 
 const legendStyle = css({
   padding: '0 6px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '12px',
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
@@ -1014,22 +1010,22 @@ const optionRowStyle = css({
 const optionInputStyle = css({
   flex: 1,
   padding: '8px 10px',
-  background: 'var(--rr-surface-muted)',
-  border: '1px solid var(--rr-border-strong)',
+  background: c.surfaceMuted,
+  border: `1px solid ${c.borderStrong}`,
   borderRadius: '4px',
-  color: 'var(--rr-text)',
+  color: c.text,
   fontSize: '14px',
   outline: 'none',
-  '&:focus': { borderColor: 'var(--rr-accent)' },
+  '&:focus': { borderColor: c.accent },
   '@media (max-width: 640px)': { fontSize: '16px', padding: '10px 12px' },
 })
 
 const fileInputStyle = css({
   fontSize: '13px',
-  color: 'var(--rr-text)',
+  color: c.text,
   '&::file-selector-button': {
-    background: 'var(--rr-accent)',
-    color: 'var(--rr-surface-muted)',
+    background: c.accent,
+    color: c.surfaceMuted,
     border: 'none',
     padding: '6px 12px',
     borderRadius: '4px',
@@ -1044,7 +1040,7 @@ const existingFileStyle = css({
   alignItems: 'center',
   gap: '12px',
   padding: '6px 8px',
-  background: 'var(--rr-accent-soft)',
+  background: c.accentSoft,
   borderRadius: '4px',
   fontSize: '13px',
   '& code': { fontFamily: 'monospace', opacity: 0.85 },

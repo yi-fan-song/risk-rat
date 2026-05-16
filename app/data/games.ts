@@ -11,6 +11,7 @@ import {
   type Game,
   type GamePlayer,
   type GameState,
+  type GameStatus,
 } from './schema.ts'
 import { db } from './db.ts'
 import { generateCode } from './codes.ts'
@@ -79,7 +80,7 @@ export async function loadGameByCode(joinCode: string): Promise<GameWithBoard | 
 export async function patchGameState(
   joinCode: string,
   updater: (state: GameState, ctx: GameWithBoard) => GameState,
-  extraUpdates: Partial<{ status: string }> = {},
+  extraUpdates: Partial<{ status: GameStatus }> = {},
 ): Promise<GameWithBoard | null> {
   const ctx = await loadGameByCode(joinCode)
   if (!ctx) return null

@@ -1,4 +1,3 @@
-import { Auth } from 'remix/auth-middleware'
 import { Database } from 'remix/data-table'
 import type { BuildAction } from 'remix/fetch-router'
 import { css } from 'remix/ui'
@@ -13,6 +12,8 @@ import {
 } from '../data/schema.ts'
 import { routes } from '../routes.ts'
 import { Layout } from '../ui/layout.tsx'
+import { c } from '../ui/theme.ts'
+import { getCurrentUserOrNull } from '../utils/auth.ts'
 import { render } from '../utils/render.tsx'
 
 interface BoardRowValuesShape {
@@ -30,9 +31,7 @@ export const share: BuildAction<'GET', typeof routes.share> = {
     const grid = await loadBoardWithGrid(board.id)
     if (!grid) return new Response('Not Found', { status: 404 })
 
-    const auth = get(Auth) as { ok: boolean; identity?: User }
-    const viewer = auth.ok ? auth.identity ?? null : null
-
+    const viewer = getCurrentUserOrNull({ get })
     return render(<SharedBoardPage user={viewer} grid={grid} />, request)
   },
 }
@@ -100,7 +99,7 @@ function SharedBoardPage() {
 
 const titleStyle = css({
   margin: '0 0 8px',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '32px',
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
@@ -115,8 +114,8 @@ const shareNoteStyle = css({
 })
 
 const hostButtonStyle = css({
-  background: 'var(--rr-accent)',
-  color: 'var(--rr-surface-muted)',
+  background: c.accent,
+  color: c.surfaceMuted,
   border: 'none',
   padding: '8px 16px',
   borderRadius: '4px',
@@ -125,7 +124,7 @@ const hostButtonStyle = css({
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   fontSize: '13px',
-  '&:hover': { background: 'var(--rr-text)' },
+  '&:hover': { background: c.text },
 })
 
 const gridWrapperStyle = css({
@@ -138,13 +137,13 @@ const gridWrapperStyle = css({
 const gridStyle = css({
   display: 'grid',
   gap: '4px',
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '4px',
-  border: '1px solid var(--rr-border-strong)',
+  border: `1px solid ${c.borderStrong}`,
 })
 
 const categoryCellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   padding: '16px 8px',
   minHeight: '64px',
   display: 'flex',
@@ -154,19 +153,19 @@ const categoryCellStyle = css({
   textTransform: 'uppercase',
   fontWeight: 700,
   letterSpacing: '0.04em',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '14px',
   '@media (max-width: 640px)': { padding: '10px 4px', minHeight: '48px', fontSize: '11px' },
 })
 
 const cellStyle = css({
-  background: 'var(--rr-surface-muted)',
+  background: c.surfaceMuted,
   minHeight: '90px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--rr-accent)',
+  color: c.accent,
   fontSize: '28px',
   fontWeight: 700,
   '@media (max-width: 640px)': { minHeight: '64px', fontSize: '20px' },
