@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test'
+import { writeFileSync } from 'node:fs'
 import { makeTestUser, signUp, createBoard } from './helpers'
+
+// Minimal 1x1 red PNG, used by the file-clue gameplay test.
+const TINY_PNG = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4' +
+    '890000000d49444154789c63f8cfc0c0c0000003000180a1b8d70000000049454e44ae426082',
+  'hex',
+)
 
 /**
  * Extract a join code (6 uppercase alphanumeric chars from the host code alphabet)
@@ -225,4 +233,111 @@ test('anonymous player can join a game with a custom display name', async ({
 
   await anonContext.close()
   await ownerContext.close()
+})
+
+test('multiple-choice clue renders options in the game (host sees correct, player does not)', async ({
+  browser,
+}) => {
+  // Owner builds a board with an MC clue, starts the game, opens that clue.
+  const ownerContext = await browser.newContext()
+  const ownerPage = await ownerContext.newPage()
+  await signUp(ownerPage, makeTestUser('host_mc'))
+  const boardId = await createBoard(ownerPage, `MC Game ${Date.now()}`)
+
+  const firstCell = ownerPage.locator(`a[href*="/boards/${boardId}/clues/"]`).first()
+  await firstCell.click()
+  await ownerPage.locator('input[name="payloadType"][value="multiple_choice"]').check()
+  await ownerPage.locator('input[name="value"]').fill('200')
+  await ownerPage.locator('textarea[name="prompt"]').fill('Closest planet to the sun?')
+  await ownerPage.locator('input[name="option_0"]').fill('Mercury')
+  await ownerPage.locator('input[name="option_1"]').fill('Venus')
+  await ownerPage.locator('input[name="option_2"]').fill('Earth')
+  await ownerPage.locator('input[name="option_3"]').fill('Mars')
+  await ownerPage.locator('input[name="correct"][value="0"]').check()
+  await ownerPage.getByRole('button', { name: /save clue/i }).click()
+  await expect(ownerPage.getByText('Clue saved.')).toBeVisible()
+
+  await ownerPage.getByRole('button', { name: /start live game/i }).click()
+  await expect(ownerPage).toHaveURL(/\/games\/[A-Z2-9]{6}\/host$/)
+  const joinCode = extractJoinCode(ownerPage.url())
+
+  // Open a spectator context so we can verify the non-host view too.
+  const spectatorPage = await (await browser.newContext()).newPage()
+  await spectatorPage.goto(`/games/${joinCode}/watch`)
+
+  await ownerPage.getByRole('button', { name: /start game/i }).click()
+  await expect(ownerPage.getByText('Category 1')).toBeVisible()
+  // Wait for spectator's SSE-driven reload to settle on the in-progress state
+  // before triggering the next event (otherwise the next event can fire while
+  // the spectator's EventSource is still reconnecting from the prior reload).
+  await expect(spectatorPage.getByText('Category 1')).toBeVisible()
+
+  // Host opens the MC clue (the only $200 cell on the board so far).
+  await ownerPage
+    .locator(`form[action="/games/${joinCode}/action"] button[type="submit"]`)
+    .filter({ hasText: '$200' })
+    .first()
+    .click()
+
+  // Host sees prompt + all 4 options + the "correct" tag on Mercury.
+  await expect(ownerPage.getByText('Closest planet to the sun?')).toBeVisible()
+  for (const opt of ['Mercury', 'Venus', 'Earth', 'Mars']) {
+    await expect(ownerPage.getByText(opt)).toBeVisible()
+  }
+  await expect(ownerPage.getByText(/^correct$/i)).toBeVisible()
+
+  // Spectator sees the options but NOT the correct mark.
+  await expect(spectatorPage.getByText('Closest planet to the sun?')).toBeVisible()
+  for (const opt of ['Mercury', 'Venus', 'Earth', 'Mars']) {
+    await expect(spectatorPage.getByText(opt)).toBeVisible()
+  }
+  await expect(spectatorPage.getByText(/^correct$/i)).toHaveCount(0)
+})
+
+test('file clue renders an inline image to host and spectator', async ({ browser }) => {
+  const ownerContext = await browser.newContext()
+  const ownerPage = await ownerContext.newPage()
+  await signUp(ownerPage, makeTestUser('host_file'))
+  const boardId = await createBoard(ownerPage, `File Game ${Date.now()}`)
+
+  // Upload a tiny PNG to a clue.
+  const tmpPath = `/tmp/game-test-${Date.now()}.png`
+  writeFileSync(tmpPath, TINY_PNG)
+
+  const firstCell = ownerPage.locator(`a[href*="/boards/${boardId}/clues/"]`).first()
+  await firstCell.click()
+  await ownerPage.locator('input[name="payloadType"][value="file"]').check()
+  await ownerPage.locator('input[name="value"]').fill('200')
+  await ownerPage.locator('textarea[name="prompt"]').fill('Identify this:')
+  await ownerPage.setInputFiles('input[name="file"]', tmpPath)
+  await ownerPage.getByRole('button', { name: /save clue/i }).click()
+  await expect(ownerPage.getByText('Clue saved.')).toBeVisible()
+
+  await ownerPage.getByRole('button', { name: /start live game/i }).click()
+  const joinCode = extractJoinCode(ownerPage.url())
+
+  const spectatorPage = await (await browser.newContext()).newPage()
+  await spectatorPage.goto(`/games/${joinCode}/watch`)
+
+  await ownerPage.getByRole('button', { name: /start game/i }).click()
+  await expect(ownerPage.getByText('Category 1')).toBeVisible()
+  await expect(spectatorPage.getByText('Category 1')).toBeVisible()
+  await ownerPage
+    .locator(`form[action="/games/${joinCode}/action"] button[type="submit"]`)
+    .filter({ hasText: '$200' })
+    .first()
+    .click()
+
+  // Host sees the image, sourced from /files/:key
+  const hostImg = ownerPage.locator('img[src^="/files/"]')
+  await expect(hostImg).toBeVisible()
+
+  // The file route serves real bytes — verify the image actually loads.
+  const naturalWidth = await hostImg.evaluate(
+    (el) => (el as HTMLImageElement).naturalWidth,
+  )
+  expect(naturalWidth).toBeGreaterThan(0)
+
+  // Spectator sees it too.
+  await expect(spectatorPage.locator('img[src^="/files/"]')).toBeVisible()
 })
