@@ -16,6 +16,7 @@ spectator views.
 docker compose up -d        # postgres + redis
 npm install
 npm run db:migrate
+npm run db:seed             # public template boards (idempotent)
 npm run dev                 # http://localhost:44100
 ```
 

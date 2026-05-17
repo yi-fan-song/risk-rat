@@ -23,6 +23,7 @@ import { files } from './controllers/files.tsx'
 import { games } from './controllers/games.tsx'
 import { home } from './controllers/home.tsx'
 import { share } from './controllers/share.tsx'
+import { templates } from './controllers/templates.tsx'
 
 const middleware = []
 
@@ -81,5 +82,6 @@ router.map(routes.home, home)
 router.map(routes.auth, auth)
 router.map(routes.boards, boards)
 router.map(routes.share, share)
+router.map(routes.templates, templates)
 router.map(routes.games, games)
 router.map(routes.files, files)

@@ -48,6 +48,10 @@ function HomePage() {
             Log in
           </a>
         </div>
+        <p mix={tryStyle}>
+          Want to try first?{' '}
+          <a href={routes.templates.index.href()}>Browse ready-made templates →</a>
+        </p>
       </section>
     </Layout>
   )
@@ -98,6 +102,12 @@ const ctaStyle = css({
   justifyContent: 'center',
   flexWrap: 'wrap',
   '@media (max-width: 640px)': { flexDirection: 'column', alignItems: 'stretch' },
+})
+
+const tryStyle = css({
+  marginTop: '24px',
+  fontSize: '14px',
+  color: c.textMuted,
 })
 
 const primaryButtonStyle = css({

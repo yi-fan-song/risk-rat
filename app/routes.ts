@@ -24,6 +24,12 @@ export const routes = route({
 
   share: get('/share/:shareCode'),
 
+  templates: {
+    index: get('/templates'),
+    show: get('/templates/:boardId'),
+    play: post('/templates/:boardId/play'),
+  },
+
   files: {
     show: get('/files/:key'),
   },

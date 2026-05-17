@@ -19,6 +19,7 @@ export const boards = table({
     title: c.text().notNull(),
     share_code: c.text().nullable().unique(),
     row_values: c.json().notNull(),
+    is_template: c.boolean().notNull().default(false),
     created_at: c.timestamp().notNull().defaultNow(),
     updated_at: c.timestamp().notNull().defaultNow(),
   },
