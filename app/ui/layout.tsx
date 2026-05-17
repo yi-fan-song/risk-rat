@@ -3,6 +3,7 @@ import { css } from 'remix/ui'
 
 import type { User } from '../data/schema.ts'
 import { routes } from '../routes.ts'
+import { AuthProvider } from './auth-context.tsx'
 import { Document } from './document.tsx'
 import { BRAND_UPPER, c, fonts } from './theme.ts'
 
@@ -16,32 +17,34 @@ export interface LayoutProps {
 export function Layout() {
   return ({ title, children, user, flash }: LayoutProps) => (
     <Document title={title}>
-      <header mix={headerStyle}>
-        <a href={routes.home.href()} mix={brandStyle}>
-          {BRAND_UPPER}
-        </a>
-        <nav mix={navStyle}>
-          {user ? (
-            <>
-              <a href={routes.boards.index.href()}>My boards</a>
-              <span mix={css({ opacity: 0.6 })}>·</span>
-              <span>{user.username}</span>
-              <form method="post" action={routes.auth.logout.href()} mix={inlineFormStyle}>
-                <button type="submit" mix={linkButtonStyle}>
-                  Log out
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <a href={routes.auth.login.index.href()}>Log in</a>
-              <a href={routes.auth.signup.index.href()}>Sign up</a>
-            </>
-          )}
-        </nav>
-      </header>
-      {flash ? <div mix={flashStyle}>{flash}</div> : null}
-      <main mix={mainStyle}>{children}</main>
+      <AuthProvider user={user ?? null}>
+        <header mix={headerStyle}>
+          <a href={routes.home.href()} mix={brandStyle}>
+            {BRAND_UPPER}
+          </a>
+          <nav mix={navStyle}>
+            {user ? (
+              <>
+                <a href={routes.boards.index.href()}>My boards</a>
+                <span mix={css({ opacity: 0.6 })}>·</span>
+                <span>{user.username}</span>
+                <form method="post" action={routes.auth.logout.href()} mix={inlineFormStyle}>
+                  <button type="submit" mix={linkButtonStyle}>
+                    Log out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <a href={routes.auth.login.index.href()}>Log in</a>
+                <a href={routes.auth.signup.index.href()}>Sign up</a>
+              </>
+            )}
+          </nav>
+        </header>
+        {flash ? <div mix={flashStyle}>{flash}</div> : null}
+        <main mix={mainStyle}>{children}</main>
+      </AuthProvider>
     </Document>
   )
 }
