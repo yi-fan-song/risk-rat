@@ -23,6 +23,7 @@ export function Layout() {
             {BRAND_UPPER}
           </a>
           <nav mix={navStyle}>
+            <a href={routes.templates.index.href()}>Templates</a>
             {user ? (
               <>
                 <a href={routes.boards.index.href()}>My boards</a>
