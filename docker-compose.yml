@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: risk-rat-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: riskrat
       POSTGRES_PASSWORD: riskrat
@@ -19,6 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: risk-rat-redis
+    restart: unless-stopped
     ports:
       - '63790:6379'
     volumes:
@@ -29,19 +31,19 @@ services:
       timeout: 3s
       retries: 20
 
-  # The app itself. Gated behind the `app` profile so `docker compose up -d`
-  # (without --profile app) keeps the dev-friendly behavior of running only
-  # postgres + redis and letting `npm run dev` run on the host.
+  # The Risk Rat app. Runs migrations + template seed on entrypoint, then
+  # serves the production build. `restart: unless-stopped` so docker brings
+  # it back on boot.
   #
-  # To run the full stack:
-  #   docker compose --profile app up -d --build
+  # If you want to run `npm run dev` on the host instead, stop this service
+  # first (`docker compose stop app cloudflared`) — both bind host port 44100.
   app:
     build:
       context: .
       dockerfile: Dockerfile
     image: risk-rat-app:latest
     container_name: risk-rat-app
-    profiles: ['app']
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +65,20 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
+
+  # Cloudflare Tunnel — fronts the app on a public hostname configured in
+  # the Cloudflare Zero Trust dashboard. Uses host networking so the ingress
+  # rule in the dashboard can target `http://localhost:44100`. The token is
+  # read from CLOUDFLARE_TUNNEL_TOKEN in .env and not committed.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: risk-rat-cloudflared
+    restart: unless-stopped
+    command: ['tunnel', '--no-autoupdate', 'run', '--token', '${CLOUDFLARE_TUNNEL_TOKEN}']
+    network_mode: host
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   postgres-data:
