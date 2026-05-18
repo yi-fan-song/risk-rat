@@ -1,0 +1,25 @@
+node_modules
+.git
+.gitignore
+.github
+.env
+.env.example
+.agents
+README.md
+AGENTS.md
+docker-compose.yml
+Dockerfile
+
+# Local working state, never wanted in the image
+tmp/
+dist/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+*.log
+.DS_Store
+
+# Tests aren't run inside the image
+tests/
+playwright.config.ts

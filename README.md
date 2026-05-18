@@ -12,6 +12,10 @@ spectator views.
 
 ## Running locally
 
+Two modes, pick one:
+
+**Dev mode** — fast restarts on file changes, containerized infra only:
+
 ```sh
 docker compose up -d        # postgres + redis
 npm install
@@ -19,6 +23,25 @@ npm run db:migrate
 npm run db:seed             # public template boards (idempotent)
 npm run dev                 # http://localhost:44100
 ```
+
+**Full stack in Docker** — for production-like local runs or trying the
+app without Node installed. Runs migrations + seed automatically on
+container start:
+
+```sh
+docker compose --profile app up -d --build
+# http://localhost:44100
+```
+
+Stop everything:
+
+```sh
+docker compose --profile app down
+```
+
+The `app` profile is opt-in, so plain `docker compose up -d` still only
+brings up postgres + redis (matching the dev workflow). You can't run
+both modes at once — both bind host port 44100.
 
 ## Tests
 

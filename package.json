@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env server.ts",
     "start": "tsx --env-file=.env server.ts",
+    "start:prod": "tsx server.ts",
     "test": "tsx --test",
     "typecheck": "tsc --noEmit",
     "db:up": "docker compose up -d",
@@ -12,7 +13,7 @@
     "db:migrate": "tsx scripts/migrate.ts up",
     "db:migrate:down": "tsx scripts/migrate.ts down",
     "db:migrate:status": "tsx scripts/migrate.ts status",
-    "db:seed": "tsx --env-file=.env scripts/seed-templates.ts",
+    "db:seed": "tsx scripts/seed-templates.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

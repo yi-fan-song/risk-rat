@@ -29,6 +29,42 @@ services:
       timeout: 3s
       retries: 20
 
+  # The app itself. Gated behind the `app` profile so `docker compose up -d`
+  # (without --profile app) keeps the dev-friendly behavior of running only
+  # postgres + redis and letting `npm run dev` run on the host.
+  #
+  # To run the full stack:
+  #   docker compose --profile app up -d --build
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: risk-rat-app:latest
+    container_name: risk-rat-app
+    profiles: ['app']
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 44100
+      DATABASE_URL: postgres://riskrat:riskrat@postgres:5432/riskrat
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-please-change-in-prod-aaaaaaaaaaaaaaaaaaa}
+    ports:
+      - '44100:44100'
+    volumes:
+      - app-uploads:/app/tmp/uploads
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('node:http').get('http://localhost:44100/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
 volumes:
   postgres-data:
   redis-data:
+  app-uploads:
