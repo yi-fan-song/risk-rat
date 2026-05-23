@@ -9,7 +9,7 @@ import { redirect } from 'remix/response/redirect'
 import type { Controller } from 'remix/fetch-router'
 import { css } from 'remix/ui'
 
-import { hashPassword } from '../data/passwords.ts'
+import { hashPassword, needsRehash } from '../data/passwords.ts'
 import { users } from '../data/schema.ts'
 import type { AppContext } from '../router.ts'
 import { passwordProvider, signupSchema } from '../middleware/auth.ts'
@@ -35,6 +35,20 @@ export const auth = {
           if (user == null) {
             session.flash('error', 'Invalid username or password.')
             return redirect(routes.auth.login.index.href())
+          }
+
+          // Opportunistically migrate legacy scrypt hashes (or older argon2id
+          // params) to current argon2id parameters now that we have the
+          // plaintext in hand.
+          if (needsRehash(user.password_hash)) {
+            const fd = context.get(FormData)
+            const submitted = String(fd.get('password') ?? '')
+            if (submitted) {
+              const db = context.get(Database)
+              await db.update(users, user.id, {
+                password_hash: await hashPassword(submitted),
+              })
+            }
           }
 
           const completed = completeAuth(context)
